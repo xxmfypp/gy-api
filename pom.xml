@@ -5,7 +5,7 @@
 
 	<groupId>cc.fypp.gaoyuan</groupId>
 	<artifactId>gy-api</artifactId>
-	<version>1.0-SNAPSHOT</version>
+	<version>1.1-SNAPSHOT</version>
 
 	<packaging>war</packaging>
 	<properties>
@@ -262,7 +262,7 @@
 					<!-- http port -->
 					<port>8080</port>
 					<!-- application path always starts with / -->
-					<path>/gy-api</path>
+					<path>/gy-api1</path>
 
 					<!-- optionnal path to a context file -->
 					<!--<serverXml>/opt/newrepo/tulando/trunk/conf/server.xml</serverXml> -->
