@@ -30,11 +30,10 @@ public class UpdateTenderEnterPriseStatusJob implements Job {
 				// TODO Auto-generated method stub
 				boolean success = true;
 				try {
-					List<Record> tender_enterprises = Db.find("select o.* from tender_enterprise o where o.status in(?,?)and o.create_time < ?", Constants.TENDER_STATUS.UNTREATED,System.currentTimeMillis()-ConfigFileUtil.getTenderTimeout());
+					List<Record> tender_enterprises = Db.find("select o.* from tender_enterprise o where o.status in(?,?)and o.create_time < ?", Constants.TENDER_STATUS.UNTREATED,Constants.TENDER_STATUS.AGREE,System.currentTimeMillis()-ConfigFileUtil.getTenderTimeout());
 					if(tender_enterprises!=null&&!tender_enterprises.isEmpty()){
 						log.info("有"+tender_enterprises.size()+"条企业招标信息超时");
 						for(Record tender_enterprise:tender_enterprises){
-							tender_enterprise.set("status", Constants.TENDER_STATUS.AGREE);
 							tender_enterprise.set("status", Constants.TENDER_STATUS.TIMEOUT);
 							Db.update("tender_enterprise", tender_enterprise);
 						}

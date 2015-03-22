@@ -1,23 +1,29 @@
 package cc.fypp.gaoyuan.controller;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import net.sf.json.JSONObject;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
 import cc.fypp.gaoyuan.common.date.DateUtil;
+import cc.fypp.gaoyuan.common.file.FileUtil;
 import cc.fypp.gaoyuan.common.msg.Constants;
 import cc.fypp.gaoyuan.common.msg.MessageUtil;
 import cc.fypp.gaoyuan.common.sms.SmsUtil;
+import cc.fypp.gaoyuan.config.ConfigFileUtil;
 import cc.fypp.gaoyuan.validate.FindPwdValidate;
 import cc.fypp.gaoyuan.validate.GetCodeValidate;
 import cc.fypp.gaoyuan.validate.LoginValidate;
+import cc.fypp.gaoyuan.validate.SaveCommentReplyValidate;
 import cc.fypp.gaoyuan.validate.SaveUserRechargeValidate;
 import cc.fypp.gaoyuan.validate.SaveUserWithdrawValidate;
 import cc.fypp.gaoyuan.validate.UpdateUserPwdValidate;
@@ -73,7 +79,8 @@ public class UserController extends Controller{
 
 		renderJson(MessageUtil.runtimeErroMsg("用户名密码错误"));
 	}
-
+	
+	
 	@Before({GetCodeValidate.class,Tx.class})
 	/**
 	 * 获取注册码
@@ -404,6 +411,173 @@ public class UserController extends Controller{
 		renderJson(MessageUtil.successMsg("", listResult));
 	}
 	
+	/**
+	 * 上传用户头像
+	 */
+	public void uploadIconImage(){
+		Long user_id  = getParaToLong("user_id");
+		String imageStr = getPara("image_str");
+		String image_name = UUID.randomUUID().toString().replace("-", "");
+		Record user_info =  Db.findById("user_info", "user_id", user_id,"*");
+		if(StringUtils.isNotBlank(user_info.getStr("user_icon"))){
+			FileUtil.delete(ConfigFileUtil.getFilePath(), user_info.getStr("user_icon"));
+		}
+		user_info.set("user_icon", image_name);
+		FileUtil.byte2File(Base64.decodeBase64(imageStr), ConfigFileUtil.getFilePath(), image_name);
+		Db.update("user_info", "user_id",  user_info);
+		JSONObject json = new JSONObject();
+		json.put("user_icon", image_name);
+		renderJson(MessageUtil.successMsg("", json));
+	}
+	
+	/**
+	 * 下载用户头像
+	 */
+	public void downloadIconImage(){
+		String image_name = getPara();
+		File file = new File(ConfigFileUtil.getFilePath()+File.separator+image_name);
+		renderFile(file);
+	}
+	
+	/**
+	 * 分页获取我的供应商信息
+	 */
+	@Before({Tx.class})
+	public void getMySupplier(){
+		Long user_id = getParaToLong("user_id");
+		long size = Db.queryLong("select count(*) from order_info o where o.user_id = ?",user_id);
+		List<Record> listResult = new ArrayList<Record>();
+		if(size==0){
+			renderJson(MessageUtil.successMsg("", listResult));
+			return;
+		}else{
+			String merchant_id  = getPara("merchant_id");
+			Boolean is_before = getParaToBoolean("is_before");
+			Integer page_size = 10;
+			if(StringUtils.isNotBlank(getPara("page_size"))){
+				page_size = getParaToInt("page_size");
+			}
+			List<Object> listPara = new ArrayList<Object>();
+			
+			StringBuilder sql = new StringBuilder(" select o.* from merchant_info o  where o.merchant_id in ( select distinct a.merchant_id from  order_info a where a.user_id = ?)");
+			listPara.add(user_id);
+			if(StringUtils.isNotBlank(merchant_id)){
+				if(is_before){
+					sql.append(" and o.create_time < (select t.create_time from merchant_info t where t.merchant_id=?) ");
+				}else{
+					sql.append(" and o.create_time > (select t.create_time from merchant_info t where t.merchant_id=?) ");
+				}
+				listPara.add(merchant_id);
+			}
+
+			sql.append(" order by o.create_time desc  limit ?,?");
+			listPara.add(0);
+			listPara.add(page_size);
+
+			listResult = Db.find(sql.toString(),listPara.toArray(new Object[listPara.size()]));
+
+			renderJson(MessageUtil.successMsg("", listResult));
+		}
+		
+	}
+	
+	/**
+	 * 分页获取我的客户信息
+	 */
+	@Before({Tx.class})
+	public void getMyCustomer(){
+		String merchant_id = getPara("merchant_id");
+		long size = Db.queryLong("select count(*) from order_info o where o.merchant_id = ?",merchant_id);
+		List<Record> listResult = new ArrayList<Record>();
+		if(size==0){
+			renderJson(MessageUtil.successMsg("", listResult));
+			return;
+		}else{
+			String user_id  = getPara("user_id");
+			Boolean is_before = getParaToBoolean("is_before");
+			Integer page_size = 10;
+			if(StringUtils.isNotBlank(getPara("page_size"))){
+				page_size = getParaToInt("page_size");
+			}
+			List<Object> listPara = new ArrayList<Object>();
+			
+			StringBuilder sql = new StringBuilder(" select o.* from user_info o  where o.user_id in ( select distinct a.user_id from  order_info a where a.merchant_id = ?)");
+			listPara.add(merchant_id);
+			if(StringUtils.isNotBlank(user_id)){
+				if(is_before){
+					sql.append(" and o.create_time < (select t.create_time from user_id t where t.user_id=?) ");
+				}else{
+					sql.append(" and o.create_time > (select t.create_time from user_id t where t.user_id=?) ");
+				}
+				listPara.add(Long.valueOf(user_id));
+			}
+
+			sql.append(" order by o.create_time desc  limit ?,?");
+			listPara.add(0);
+			listPara.add(page_size);
+
+			listResult = Db.find(sql.toString(),listPara.toArray(new Object[listPara.size()]));
+
+			renderJson(MessageUtil.successMsg("", listResult));
+		}
+		
+	}
+	
+	
+	/**
+	 * 获取账号资金变动历史信息
+	 */
+	@Before({Tx.class})
+	public void getAccountTransactionHis(){
+		String login_name =  getPara("login_name");
+		String account_transaction_id  = getPara("account_transaction_id");
+		Boolean is_before = getParaToBoolean("is_before");
+		Integer page_size = 10;
+		if(StringUtils.isNotBlank(getPara("page_size"))){
+			page_size = getParaToInt("page_size");
+		}
+		List<Object> listPara = new ArrayList<Object>();
+		
+		StringBuilder sql = new StringBuilder("select o.* from account_transaction_his o where o.login_name = ?");
+		listPara.add(login_name);
+		if(StringUtils.isNotBlank(account_transaction_id)){
+			if(is_before){
+				sql.append(" and o.create_time < (select t.create_time from account_transaction_his t where t.id=?) ");
+			}else{
+				sql.append(" and o.create_time > (select t.create_time from account_transaction_his t where t.id=?) ");
+			}
+			listPara.add(Long.valueOf(account_transaction_id));
+		}
+
+		sql.append(" order by o.create_time desc  limit ?,?");
+		listPara.add(0);
+		listPara.add(page_size);
+
+		List<Record> listResult = Db.find(sql.toString(),listPara.toArray(new Object[listPara.size()]));
+
+		renderJson(MessageUtil.successMsg("", listResult));
+	}
+	
+	/**
+	 * 评论回复
+	 */
+	@Before(SaveCommentReplyValidate.class)
+	public void saveCommentReply(){
+		Long comment_id  = getParaToLong("comment_id");
+		String type = getPara("type");
+		String login_name = getPara("login_name");
+		String content =  getPara("content");
+		Record comment_reply = new Record()
+				.set("comment_id", comment_id)
+				.set("type", type)
+				.set("content", content)
+				.set("login_name", login_name)
+				.set("create_time", System.currentTimeMillis());
+		Db.save("comment_reply", comment_reply);
+		renderJson(MessageUtil.successMsg("","回复成功"));
+	}
+	
+	
 
 
 	private static String getUserRechargeId(){
@@ -429,6 +603,8 @@ public class UserController extends Controller{
 		sb.append(String.valueOf(num+1));
 		return sb.toString();
 	}
+	
+	
 
 
 }

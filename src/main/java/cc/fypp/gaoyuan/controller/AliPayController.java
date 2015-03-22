@@ -134,6 +134,13 @@ public class AliPayController extends Controller{
 					Record user_info = Db.findById("user_info", "user_id", user_recharge_info.getLong("user_id"), "*");
 					user_info.set("balance", user_info.getBigDecimal("balance").add(user_recharge_info.getBigDecimal("amount")));
 					Db.update("user_info", "user_id", user_info);
+					Record account_transaction_his = new Record()
+					.set("login_name", user_info.getStr("login_name"))
+					.set("amount",user_recharge_info.getBigDecimal("amount"))
+					.set("description", "支付宝充值")
+					.set("create_time", System.currentTimeMillis())
+					.set("external_id",out_trade_no);
+					Db.save("account_transaction_his", account_transaction_his);
 					
 					//短信通知
 					try {
@@ -172,6 +179,14 @@ public class AliPayController extends Controller{
 					Record merchant_info = Db.findById("merchant_info", "merchant_id", merchant_recharge_info.getStr("merchant_id"), "*");
 					merchant_info.set("balance", merchant_info.getBigDecimal("balance").add(merchant_recharge_info.getBigDecimal("amount")));
 					Db.update("merchant_info", "merchant_id", merchant_info);
+					
+					Record account_transaction_his = new Record()
+					.set("login_name", merchant_info.getStr("login_name"))
+					.set("amount",merchant_recharge_info.getBigDecimal("amount"))
+					.set("description", "支付宝充值")
+					.set("create_time", System.currentTimeMillis())
+					.set("external_id",out_trade_no);
+					Db.save("account_transaction_his", account_transaction_his);
 					
 					//短信通知
 					try {
@@ -225,6 +240,13 @@ public class AliPayController extends Controller{
 					Record user_info = Db.findById("user_info", "user_id", user_recharge_info.getLong("user_id"), "*");
 					user_info.set("balance", user_info.getBigDecimal("balance").add(user_recharge_info.getBigDecimal("amount")));
 					Db.update("user_info", "user_id", user_info);
+					Record account_transaction_his = new Record()
+					.set("login_name", user_info.getStr("login_name"))
+					.set("amount",user_info.getBigDecimal("amount"))
+					.set("description", "支付宝充值")
+					.set("create_time", System.currentTimeMillis())
+					.set("external_id",out_trade_no);
+					Db.save("account_transaction_his", account_transaction_his);
 					
 					//短信通知
 					try {
@@ -260,6 +282,14 @@ public class AliPayController extends Controller{
 					Record merchant_info = Db.findById("merchant_info", "merchant_id", merchant_recharge_info.getStr("merchant_id"), "*");
 					merchant_info.set("balance", merchant_info.getBigDecimal("balance").add(merchant_recharge_info.getBigDecimal("amount")));
 					Db.update("merchant_info", "merchant_id", merchant_info);
+					
+					Record account_transaction_his = new Record()
+					.set("login_name", merchant_recharge_info.getStr("login_name"))
+					.set("amount",merchant_recharge_info.getBigDecimal("amount"))
+					.set("description", "支付宝充值")
+					.set("create_time", System.currentTimeMillis())
+					.set("external_id",out_trade_no);
+					Db.save("account_transaction_his", account_transaction_his);
 					
 					//短信通知
 					try {

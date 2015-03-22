@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>cc.fypp.gaoyuan</groupId>
-	<artifactId>gy-api</artifactId>
+	<artifactId>gy-api1</artifactId>
 	<version>1.1-SNAPSHOT</version>
 
 	<packaging>war</packaging>

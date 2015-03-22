@@ -16,7 +16,7 @@ public class ConfigFileUtil {
 
 	private static String configHome = System.getenv("gy_home");
 
-	private static String configFilePath = configHome + File.separator + "conf" + File.separator + "gy-api.properties";
+	private static String configFilePath = configHome + File.separator + "conf" + File.separator + "gy-api1.properties";
 
 	public static void getConfig() {
 		try {
@@ -40,7 +40,7 @@ public class ConfigFileUtil {
 
 	private static void loadConfig(String configFilePath) throws ConfigurationException {
 		System.setProperty("config.file", configFilePath);
-		ConfigurationFactory factory = new ConfigurationFactory("gy-api.xml");
+		ConfigurationFactory factory = new ConfigurationFactory("gy-api1.xml");
 		config = factory.getConfiguration();
 	}
 

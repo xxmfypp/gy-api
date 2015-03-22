@@ -69,6 +69,11 @@ public interface Constants {
 		
 		public String END = "4";
 	}
+	
+	interface IS_RECOMMOND{
+		public String YES = "1";
+		public String NO = "0";
+	}
 
 	/**
 	 * 订单状态
@@ -86,6 +91,7 @@ public interface Constants {
 		public String END = "2";
 
 	}
+	
 
 	/**
 	 * 付款/充值状态
@@ -172,6 +178,7 @@ public interface Constants {
 		
 		//未读
 		public String UN_READ="0";
+		
 	}
 
 

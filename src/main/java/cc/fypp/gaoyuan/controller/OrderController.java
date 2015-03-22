@@ -95,93 +95,56 @@ public class OrderController extends Controller{
 	 * 用户付款
 	 */
 	public void userPayment(){
-		Long order_id = getParaToLong("order_id");
 		Long user_id = getParaToLong("user_id");
-		BigDecimal amount = BigDecimal.valueOf(Double.valueOf(getPara("amount")));
+		String tender_id = getPara("tender_id");
+		String merchant_id = getPara("merchant_id");
+		BigDecimal total_amount = BigDecimal.valueOf(Double.valueOf(getPara("total_amount")));
+		String order_time =  getPara("order_time");
 
 		Record user_info = Db.findById("user_info", "user_id", user_id, "*");
 
-		if(user_info.getBigDecimal("balance").compareTo(amount)==-1){
+		if(user_info.getBigDecimal("balance").compareTo(total_amount)==-1){
 			renderJson(MessageUtil.jsonExceptionMsg(2,"当前余额不足,请尽快充值"));
 			return;
 		}
 		
-		Record merchant_info = null;
 		
-		if(order_id==null){
-			String tender_id = getPara("tender_id");
-			String merchant_id = getPara("merchant_id");
-			BigDecimal total_amount = BigDecimal.valueOf(Double.valueOf(getPara("total_amount")));
-			String order_time =  getPara("order_time");
-			Record order_info = new Record()
-			.set("tender_id", tender_id)
-			.set("user_id", user_id)
-			.set("merchant_id", merchant_id)
-			.set("amount", total_amount)
-			.set("create_time", System.currentTimeMillis())
-			.set("order_time", order_time)
-			.set("user_del", Constants.ORDER_DEL_STATUS.UN_DELETE)
-			.set("merchant_del", Constants.ORDER_DEL_STATUS.UN_DELETE);
-			
-			if(StringUtils.isNotBlank(getPara("customer_name"))){
-				order_info.set("customer_name", getPara("customer_name"));
-			}
-
-			if(StringUtils.isNotBlank(getPara("customer_address"))){
-				order_info.set("customer_address", getPara("customer_address"));
-			}
-
-			if(StringUtils.isNotBlank(getPara("customer_phone"))){
-				order_info.set("customer_phone", getPara("customer_phone"));
-			}
-			
-			BigDecimal needAmount = total_amount.multiply(new BigDecimal(0.3));
-			needAmount = needAmount.setScale(2, BigDecimal.ROUND_HALF_UP);
-			if(amount.compareTo(needAmount)!=0){
-				renderJson(MessageUtil.runtimeErroMsg("当前应付金额为:"+needAmount.toString()+"元"));
-				return;
-			}
-			
-			order_info.set("status", Constants.ORDER_STATUS.START);
-			
-			Db.save("order_info", "order_id", order_info);
-			
-			Record tender_enterprise = Db.findFirst("select o.* from tender_enterprise o where o.tender_id = ? and o.merchant_id = ? and o.status = ?", tender_id,merchant_id,Constants.TENDER_STATUS.AGREE);
-			if(tender_enterprise!=null){
-				tender_enterprise.set("status", Constants.TENDER_STATUS.END);
-				Db.update("tender_enterprise",tender_enterprise);
-			}else{
-				renderJson(MessageUtil.runtimeErroMsg("当前招标已经结束或失效"));
-				return;
-			}
-			order_id = order_info.getLong("order_id");
-			merchant_info = Db.findById("merchant_info", "merchant_id", merchant_id, "*");
-		}else{
-			Record order_info = Db.findById("order_info", "order_id", order_id, "*");
-			if(Constants.ORDER_STATUS.END.equals(order_info.getStr("status"))){
-				renderJson(MessageUtil.runtimeErroMsg("当前订单已经结束,无法继续付款"));
-				return;
-			}
-			merchant_info = Db.findById("merchant_info", "merchant_id", order_info.getStr("merchant_id"), "*");
-			Record task_rechange = Db.findFirst("select o.* from task_recharge o where o.order_id = ? and o.user_id = ?", new Object[]{order_id,user_id});
-			if(task_rechange!=null){
-				List<Record> task_infos = Db.find("select o.* from task_info o where order_id=?", order_id);
-				if(task_infos.size()!=3){
-					renderJson(MessageUtil.runtimeErroMsg("当前阶段无法进行付款"));
-					return;
-				}else{
-					BigDecimal hasAmount = task_rechange.getBigDecimal("amount");
-					BigDecimal needAmount = order_info.getBigDecimal("amount").subtract(hasAmount);
-					if(amount.compareTo(needAmount)!=0){
-						renderJson(MessageUtil.runtimeErroMsg("当前应付金额为:"+needAmount.toString()+"元"));
-						return;
-					}
-					order_info.set("status", Constants.ORDER_STATUS.END);
-					Db.update("order_info", "order_id", order_info);
-				}
-
-			}
+		Record order_info = new Record()
+		.set("tender_id", tender_id)
+		.set("user_id", user_id)
+		.set("merchant_id", merchant_id)
+		.set("amount", total_amount)
+		.set("create_time", System.currentTimeMillis())
+		.set("order_time", order_time)
+		.set("user_del", Constants.ORDER_DEL_STATUS.UN_DELETE)
+		.set("merchant_del", Constants.ORDER_DEL_STATUS.UN_DELETE);
+		
+		if(StringUtils.isNotBlank(getPara("customer_name"))){
+			order_info.set("customer_name", getPara("customer_name"));
 		}
+
+		if(StringUtils.isNotBlank(getPara("customer_address"))){
+			order_info.set("customer_address", getPara("customer_address"));
+		}
+
+		if(StringUtils.isNotBlank(getPara("customer_phone"))){
+			order_info.set("customer_phone", getPara("customer_phone"));
+		}
+		
+		order_info.set("status", Constants.ORDER_STATUS.START);
+		
+		Db.save("order_info", "order_id", order_info);
+		
+		Record tender_enterprise = Db.findFirst("select o.* from tender_enterprise o where o.tender_id = ? and o.merchant_id = ? and o.status = ?", tender_id,merchant_id,Constants.TENDER_STATUS.AGREE);
+		if(tender_enterprise!=null){
+			tender_enterprise.set("status", Constants.TENDER_STATUS.END);
+			Db.update("tender_enterprise",tender_enterprise);
+		}else{
+			renderJson(MessageUtil.runtimeErroMsg("当前招标已经结束或失效"));
+			return;
+		}
+		Long order_id = order_info.getLong("order_id");
+		Record merchant_info = Db.findById("merchant_info", "merchant_id", merchant_id, "*");
 
 		
 
@@ -189,25 +152,42 @@ public class OrderController extends Controller{
 		Record task_rechange = new Record();
 		task_rechange.set("order_id", order_id)
 		.set("user_id", user_id)
-		.set("amount", amount)
+		.set("amount", total_amount)
 		.set("status", Constants.RECHARGE_STATUS.COMPLETE)
 		.set("create_time", System.currentTimeMillis())
 		.set("mark", getPara("mark"));
 		Db.save("task_recharge", task_rechange);
 
 		//从用户余额中减去付出去的金额
-		user_info.set("balance", user_info.getBigDecimal("balance").subtract(amount));
+		user_info.set("balance", user_info.getBigDecimal("balance").subtract(total_amount));
 		Db.update("user_info", "user_id", user_info);
+		
+		
+		Record account_transaction_his = new Record()
+		.set("login_name", user_info.getStr("login_name"))
+		.set("amount",total_amount.multiply(new BigDecimal(-1)))
+		.set("description", "支付货款")
+		.set("create_time", System.currentTimeMillis())
+		.set("external_id",order_id);
+		Db.save("account_transaction_his", account_transaction_his);
 
 		//在商户的余额中加入受到的金额
-		merchant_info.set("balance", merchant_info.getBigDecimal("balance").add(amount));
+		merchant_info.set("balance", merchant_info.getBigDecimal("balance").add(total_amount));
 		Db.update("merchant_info", "merchant_id", merchant_info);
+		
+		account_transaction_his = new Record()
+		.set("login_name", merchant_info.getStr("login_name"))
+		.set("amount",total_amount)
+		.set("description", "收取货款")
+		.set("create_time", System.currentTimeMillis())
+		.set("external_id",order_id);
+		Db.save("account_transaction_his", account_transaction_his);
 		
 		try {
 			String pay_template = SmsUtil.getSmsTemplate(Constants.SMS_TYPE.PAY_WARN.toString());
 			Map<String,String> param = new HashMap<String,String>();
 			param.put("name", user_info.getStr("name"));
-			param.put("amount", amount.toString());
+			param.put("amount", total_amount.toString());
 			param.put("balance", user_info.getBigDecimal("balance").toString());
 			pay_template = MessageUtil.getFormatStringByVeloCity(pay_template, param);
 			
@@ -217,7 +197,7 @@ public class OrderController extends Controller{
 			String collect_template = SmsUtil.getSmsTemplate(Constants.SMS_TYPE.COLLECT_WARN.toString());
 			param = new HashMap<String,String>();
 			param.put("name", merchant_info.getStr("company"));
-			param.put("amount", amount.toString());
+			param.put("amount", total_amount.toString());
 			param.put("balance", merchant_info.getBigDecimal("balance").toString());
 			collect_template = MessageUtil.getFormatStringByVeloCity(collect_template, param);
 			
@@ -254,11 +234,20 @@ public class OrderController extends Controller{
 	 * 删除任务图片
 	 */
 	public void deleteTaskImage(){
-		String image_name = getPara("image_name");
-		Record task_imageinfo = Db.findFirst("select o.* from task_imageinfo o where o.image_name = ?", image_name);
-		if(task_imageinfo!=null){
-			Db.delete("task_imageinfo", task_imageinfo);
-			FileUtil.delete(ConfigFileUtil.getFilePath(), image_name);
+		String[] image_names = getPara("image_name").split(",");
+		StringBuilder sql = new StringBuilder();
+		for(String image_name:image_names){
+			if(sql.length()>0){
+				sql.append(",");
+			}
+			sql.append("'"+image_name+"'");
+		}
+		List<Record> task_imageinfos  = Db.find(new StringBuilder("select o.* from task_imageinfo o where o.image_name in ( ").append(sql).append(" ) ").toString());
+		if(task_imageinfos!=null){
+			for(Record task_imageinfo:task_imageinfos){
+				Db.delete("task_imageinfo", task_imageinfo);
+				FileUtil.delete(ConfigFileUtil.getFilePath(), task_imageinfo.getStr("image_name"));
+			}
 			renderJson(MessageUtil.successMsg("任务图片删除成功", ""));
 			return;
 		}
@@ -317,6 +306,17 @@ public class OrderController extends Controller{
 		.set("comment", comment)
 		.set("create_time", System.currentTimeMillis());
 		Db.save("comment_info", comment_info);
+		
+		BigDecimal service_score =Db.queryBigDecimal("select sum(o.service) from comment_info o where o.merchant_id = ?",merchant_id);
+		BigDecimal quality_score =Db.queryBigDecimal("select sum(o.quality) from comment_info o where o.merchant_id = ?",merchant_id);
+		BigDecimal efficiency_score =Db.queryBigDecimal("select sum(o.efficiency) from comment_info o where o.merchant_id = ?",merchant_id);
+		Long size = Db.queryLong("select count(*) from comment_info o where o.merchant_id = ?",merchant_id);
+		
+		Record merchant_info = Db.findById("merchant_info", "merchant_id", merchant_id,"*");
+		merchant_info.set("service_score", service_score.divide(new BigDecimal(size)).doubleValue());
+		merchant_info.set("quality_score", quality_score.divide(new BigDecimal(size)).doubleValue());
+		merchant_info.set("efficiency_score", efficiency_score.divide(new BigDecimal(size)).doubleValue());
+		Db.update("merchant_info", "merchant_id", merchant_info);
 		renderJson(MessageUtil.successMsg("评论成功", ""));
 	}
 
@@ -432,6 +432,17 @@ public class OrderController extends Controller{
 				return;
 			}
 		}else if(task_level==3){
+			Record order_info = Db.findById("order_info", "order_id", order_id);
+			order_info.set("status", Constants.ORDER_STATUS.END);
+			Db.update("order_info", "order_id", order_info);
+			
+			String merchant_id = Db.queryStr("select a.merchant_id from order_info a where a.order_id = ?",order_id);
+			Long size = Db.queryLong("select count(*) from order_info o where o.merchant_id = ?", merchant_id);
+			
+			Record merchant_info = Db.findById("merchant_info", "merchant_id", merchant_id,"*");
+			merchant_info.set("sales_volume", size);
+			Db.update("merchant_info", "merchant_id", merchant_info);
+			
 			sms_template = SmsUtil.getSmsTemplate(Constants.SMS_TYPE.TASK_PHASE3.toString());
 			if(StringUtils.isBlank(sms_template)){
 				renderJson(MessageUtil.runtimeErroMsg("短信模板为空"));
@@ -550,5 +561,6 @@ public class OrderController extends Controller{
 		}
 		renderJson(MessageUtil.successMsg("", new_listResult));
 	}
+	
 
 }

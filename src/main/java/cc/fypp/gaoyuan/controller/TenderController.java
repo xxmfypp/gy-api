@@ -22,6 +22,7 @@ import cc.fypp.gaoyuan.validate.DeleteTenderEnterpriseValidate;
 import cc.fypp.gaoyuan.validate.FindTenderForEenterpriseValidate;
 import cc.fypp.gaoyuan.validate.FindTenderForUserValidate;
 import cc.fypp.gaoyuan.validate.MerchantReceiptValidate;
+import cc.fypp.gaoyuan.validate.SaveBuyCarEnterpriseValidate;
 import cc.fypp.gaoyuan.validate.SaveTenderEnterpriseValidate;
 import cc.fypp.gaoyuan.validate.SaveTenderImageValidate;
 import cc.fypp.gaoyuan.validate.SaveTenderVectorImageValidate;
@@ -123,6 +124,9 @@ public class TenderController extends Controller{
 		}
 	}
 	
+	/**
+	 * 保存或修改招标信息
+	 */
 	public void saveOrUpdateTender(){
 		String user_id = getPara("user_id");
 		String tender_id = getPara("tender_id");
@@ -431,6 +435,67 @@ public class TenderController extends Controller{
 			json.put("item_value", record.getStr("item_value"));
 			renderJson(MessageUtil.successMsg("", json));
 		}
+	}
+	
+	/**
+	 * 保存至购物车
+	 */
+	public void addToBuyCar(){
+		Long user_id = getParaToLong("user_id");
+		String tender_id = getPara("tender_id");
+		Record buy_car = new Record().set("user_id", user_id).set("tender_id", tender_id);
+		Db.save("buy_car", buy_car);
+		renderJson(MessageUtil.successMsg("", "成功加入产品库"));
+	}
+	
+	/**
+	 * 获取购物车列表
+	 */
+	public void findBuyCarList(){
+		Long user_id  = getParaToLong("user_id");
+		long size = Db.queryLong("select count(*) from buy_car o where o.user_id = ?",user_id);
+		if(size==0){
+			renderJson(MessageUtil.successMsg("", ""));
+		}else{
+			List<Record> tender_infos = Db.find("select o.* from tender_info o where o.tender_id in (select distinct a.tender_id from buy_car a where a.user_id = ? )", user_id);
+			renderJson(MessageUtil.successMsg("", tender_infos));
+		}
+	}
+	
+	/**
+	 * 批量保存购物车企业信息
+	 */
+	@Before(SaveBuyCarEnterpriseValidate.class)
+	public void saveBuyCarEnterprise(){
+		long user_id = getParaToLong("user_id");
+		String[] merchant_ids = getPara("merchant_id").split(",");
+		String sms_template = SmsUtil.getSmsTemplate(Constants.SMS_TYPE.TASK_NOTE.toString());
+		if(StringUtils.isBlank(sms_template)){
+			renderJson(MessageUtil.runtimeErroMsg("短信模板为空"));
+			return;
+		}
+		List<Record> buy_cars = Db.find("select distinct o.tender_id from buy_car o where o.user_id = ?", user_id);
+		for(String merchant_id:merchant_ids){
+			
+			for(Record record:buy_cars){
+				Record tender_enterprise = new Record()
+				.set("tender_id", record.getStr("tender_id"))
+				.set("merchant_id", merchant_id)
+				.set("status", Constants.TENDER_STATUS.UNTREATED)
+				.set("merchant_del", Constants.TENDER_DEL_STATUS.UN_DELETE)
+				.set("create_time", System.currentTimeMillis());
+				Db.save("tender_enterprise", tender_enterprise);
+			}
+			
+			/**
+			 * TODO
+			 * 短信通知商户
+			 */
+			Record merchant = Db.findById("merchant_info", "merchant_id", merchant_id, "*");
+			Thread thread = new Thread(new SendSMS(merchant.getStr("login_name"), sms_template));
+			thread.start();
+		}
+		renderJson(MessageUtil.successMsg("保存招标企业信息成功", ""));
 	}
 	
 	class SendSMS implements Runnable{
