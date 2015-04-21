@@ -505,9 +505,9 @@ public class UserController extends Controller{
 			listPara.add(merchant_id);
 			if(StringUtils.isNotBlank(user_id)){
 				if(is_before){
-					sql.append(" and o.create_time < (select t.create_time from user_id t where t.user_id=?) ");
+					sql.append(" and o.create_time < (select t.create_time from user_info t where t.user_id=?) ");
 				}else{
-					sql.append(" and o.create_time > (select t.create_time from user_id t where t.user_id=?) ");
+					sql.append(" and o.create_time > (select t.create_time from user_info t where t.user_id=?) ");
 				}
 				listPara.add(Long.valueOf(user_id));
 			}

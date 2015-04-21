@@ -8,7 +8,7 @@ import cc.fypp.gaoyuan.common.msg.MessageUtil;
 import com.jfinal.core.Controller;
 import com.jfinal.validate.Validator;
 
-public class FindOrderForUserValidate extends Validator{
+public class FindOrderForEnterpriseByUserIdValidate extends Validator{
 
 	private String error;
 	
@@ -27,11 +27,15 @@ public class FindOrderForUserValidate extends Validator{
 	protected void validate(Controller arg0) {
 		// TODO Auto-generated method stub
 		String user_id  = arg0.getPara("user_id");
+		String merchant_id  = arg0.getPara("merchant_id");
 		if(StringUtils.isBlank(user_id)){
 			setError(MessageUtil.runtimeErroMsg("用户编号不能为空").toString());
 			return;
 		}
-		
+		if(StringUtils.isBlank(merchant_id)){
+			setError(MessageUtil.runtimeErroMsg("商户编号不能为空").toString());
+			return;
+		}
 		if(StringUtils.isNotBlank(arg0.getPara("order_id"))){
 			if(StringUtils.isBlank(arg0.getPara("is_before"))){
 				setError(MessageUtil.runtimeErroMsg("is_before的值不能为空").toString());

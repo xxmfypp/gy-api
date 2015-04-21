@@ -137,6 +137,7 @@ public class AliPayController extends Controller{
 					Record account_transaction_his = new Record()
 					.set("login_name", user_info.getStr("login_name"))
 					.set("amount",user_recharge_info.getBigDecimal("amount"))
+					.set("type", Constants.TRANSATION_STATUS.RECHARGE)
 					.set("description", "支付宝充值")
 					.set("create_time", System.currentTimeMillis())
 					.set("external_id",out_trade_no);
@@ -184,6 +185,7 @@ public class AliPayController extends Controller{
 					.set("login_name", merchant_info.getStr("login_name"))
 					.set("amount",merchant_recharge_info.getBigDecimal("amount"))
 					.set("description", "支付宝充值")
+					.set("type", Constants.TRANSATION_STATUS.RECHARGE)
 					.set("create_time", System.currentTimeMillis())
 					.set("external_id",out_trade_no);
 					Db.save("account_transaction_his", account_transaction_his);
@@ -244,6 +246,7 @@ public class AliPayController extends Controller{
 					.set("login_name", user_info.getStr("login_name"))
 					.set("amount",user_info.getBigDecimal("amount"))
 					.set("description", "支付宝充值")
+					.set("type", Constants.TRANSATION_STATUS.RECHARGE)
 					.set("create_time", System.currentTimeMillis())
 					.set("external_id",out_trade_no);
 					Db.save("account_transaction_his", account_transaction_his);
@@ -287,6 +290,7 @@ public class AliPayController extends Controller{
 					.set("login_name", merchant_recharge_info.getStr("login_name"))
 					.set("amount",merchant_recharge_info.getBigDecimal("amount"))
 					.set("description", "支付宝充值")
+					.set("type", Constants.TRANSATION_STATUS.RECHARGE)
 					.set("create_time", System.currentTimeMillis())
 					.set("external_id",out_trade_no);
 					Db.save("account_transaction_his", account_transaction_his);

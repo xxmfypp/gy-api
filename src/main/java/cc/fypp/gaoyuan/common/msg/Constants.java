@@ -129,6 +129,23 @@ public interface Constants {
 		public String FAILURE = "2";
 
 	}
+	
+	/**
+	 * 交易状态
+	 * @author xxm
+	 *
+	 */
+	interface TRANSATION_STATUS{
+		//充值
+		public String RECHARGE = "0";
+		//提款
+		public String WITHDRAW = "1";
+		//付款
+		public String PAYMENT = "2";
+		//收款
+		public String RECEIVABLES = "3";
+
+	}
 
 	/**
 	 * 任务等级

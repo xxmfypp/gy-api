@@ -20,9 +20,11 @@ import cc.fypp.gaoyuan.common.msg.MessageUtil;
 import cc.fypp.gaoyuan.common.sms.SmsUtil;
 import cc.fypp.gaoyuan.config.ConfigFileUtil;
 import cc.fypp.gaoyuan.validate.FindOrderForEenterpriseValidate;
+import cc.fypp.gaoyuan.validate.FindOrderForEnterpriseByUserIdValidate;
 import cc.fypp.gaoyuan.validate.FindOrderForUserValidate;
 import cc.fypp.gaoyuan.validate.SaveCommentInfoValidate;
 import cc.fypp.gaoyuan.validate.SaveTaskInfoValidate;
+import cc.fypp.gaoyuan.validate.SubmitOrderCompleteValidate;
 import cc.fypp.gaoyuan.validate.UserPaymentValidate;
 
 import com.jfinal.aop.Before;
@@ -107,8 +109,6 @@ public class OrderController extends Controller{
 			renderJson(MessageUtil.jsonExceptionMsg(2,"当前余额不足,请尽快充值"));
 			return;
 		}
-		
-		
 		Record order_info = new Record()
 		.set("tender_id", tender_id)
 		.set("user_id", user_id)
@@ -145,9 +145,6 @@ public class OrderController extends Controller{
 		}
 		Long order_id = order_info.getLong("order_id");
 		Record merchant_info = Db.findById("merchant_info", "merchant_id", merchant_id, "*");
-
-		
-
 		//保存付款记录
 		Record task_rechange = new Record();
 		task_rechange.set("order_id", order_id)
@@ -161,12 +158,11 @@ public class OrderController extends Controller{
 		//从用户余额中减去付出去的金额
 		user_info.set("balance", user_info.getBigDecimal("balance").subtract(total_amount));
 		Db.update("user_info", "user_id", user_info);
-		
-		
 		Record account_transaction_his = new Record()
 		.set("login_name", user_info.getStr("login_name"))
 		.set("amount",total_amount.multiply(new BigDecimal(-1)))
 		.set("description", "支付货款")
+		.set("type", Constants.TRANSATION_STATUS.PAYMENT)
 		.set("create_time", System.currentTimeMillis())
 		.set("external_id",order_id);
 		Db.save("account_transaction_his", account_transaction_his);
@@ -178,6 +174,7 @@ public class OrderController extends Controller{
 		account_transaction_his = new Record()
 		.set("login_name", merchant_info.getStr("login_name"))
 		.set("amount",total_amount)
+		.set("type", Constants.TRANSATION_STATUS.RECEIVABLES)
 		.set("description", "收取货款")
 		.set("create_time", System.currentTimeMillis())
 		.set("external_id",order_id);
@@ -432,22 +429,7 @@ public class OrderController extends Controller{
 				return;
 			}
 		}else if(task_level==3){
-			Record order_info = Db.findById("order_info", "order_id", order_id);
-			order_info.set("status", Constants.ORDER_STATUS.END);
-			Db.update("order_info", "order_id", order_info);
 			
-			String merchant_id = Db.queryStr("select a.merchant_id from order_info a where a.order_id = ?",order_id);
-			Long size = Db.queryLong("select count(*) from order_info o where o.merchant_id = ?", merchant_id);
-			
-			Record merchant_info = Db.findById("merchant_info", "merchant_id", merchant_id,"*");
-			merchant_info.set("sales_volume", size);
-			Db.update("merchant_info", "merchant_id", merchant_info);
-			
-			sms_template = SmsUtil.getSmsTemplate(Constants.SMS_TYPE.TASK_PHASE3.toString());
-			if(StringUtils.isBlank(sms_template)){
-				renderJson(MessageUtil.runtimeErroMsg("短信模板为空"));
-				return;
-			}
 		}
 		Db.save("task_info", "task_id",record);
 		
@@ -456,6 +438,27 @@ public class OrderController extends Controller{
 		thread.start();
 		
 		renderJson(MessageUtil.successMsg("保存任务信息成功", record));
+	}
+	
+	@Before({Tx.class,SubmitOrderCompleteValidate.class})
+	public void submitOrderComplete(){
+		Long order_id =  getParaToLong("order_id");
+		Record order_info = Db.findById("order_info", "order_id", order_id);
+		order_info.set("status", Constants.ORDER_STATUS.END);
+		Db.update("order_info", "order_id", order_info);
+		
+		String merchant_id = Db.queryStr("select a.merchant_id from order_info a where a.order_id = ?",order_id);
+		Long size = Db.queryLong("select count(*) from order_info o where o.merchant_id = ?", merchant_id);
+		
+		Record merchant_info = Db.findById("merchant_info", "merchant_id", merchant_id,"*");
+		merchant_info.set("sales_volume", size);
+		Db.update("merchant_info", "merchant_id", merchant_info);
+		
+		String sms_template = SmsUtil.getSmsTemplate(Constants.SMS_TYPE.TASK_PHASE3.toString());
+		if(StringUtils.isBlank(sms_template)){
+			renderJson(MessageUtil.runtimeErroMsg("短信模板为空"));
+			return;
+		}
 	}
 	
 	/**
@@ -508,6 +511,45 @@ public class OrderController extends Controller{
 
 		renderJson(MessageUtil.successMsg("", listResult));
 	}
+	
+	/**
+	 * 商户分页查询订单信息根据用户编号
+	 */
+	@Before(FindOrderForEnterpriseByUserIdValidate.class)
+	public void findOrderForEnterpriseByUserId(){
+		String merchant_id  = getPara("merchant_id");
+		Long user_id  = getParaToLong("user_id");
+		String status = getPara("status");
+		Long order_id = getParaToLong("order_id"); 
+		Boolean is_before = getParaToBoolean("is_before");
+		Integer page_size = 10;
+		if(StringUtils.isNotBlank(getPara("page_size"))){
+			page_size = getParaToInt("page_size");
+		}
+		List<Object> listPara = new ArrayList<Object>();
+		StringBuilder sql = new StringBuilder(" select o.* from order_info o  where o.merchant_id = ? and o.user_id = ? and o.status = ?  and o.merchant_del = ?");
+		listPara.add(merchant_id);
+		listPara.add(user_id);
+		listPara.add(status);
+		listPara.add(Constants.ORDER_DEL_STATUS.UN_DELETE);
+		if(StringUtils.isNotBlank(getPara("order_id"))){
+			if(is_before){
+				sql.append(" and o.create_time < (select t.create_time from order_info t where t.order_id=?) ");
+			}else{
+				sql.append(" and o.create_time > (select t.create_time from order_info t where t.order_id=?) ");
+			}
+			listPara.add(order_id);
+		}
+
+		sql.append(" order by o.create_time desc  limit ?,?");
+		listPara.add(0);
+		listPara.add(page_size);
+
+		List<Record> listResult = Db.find(sql.toString(),listPara.toArray(new Object[listPara.size()]));
+
+		renderJson(MessageUtil.successMsg("", listResult));
+	}
+
 
 	/**
 	 * 用户分页查询订单信息

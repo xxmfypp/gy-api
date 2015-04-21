@@ -22,6 +22,7 @@ import cc.fypp.gaoyuan.validate.DeleteTenderEnterpriseValidate;
 import cc.fypp.gaoyuan.validate.FindTenderForEenterpriseValidate;
 import cc.fypp.gaoyuan.validate.FindTenderForUserValidate;
 import cc.fypp.gaoyuan.validate.MerchantReceiptValidate;
+import cc.fypp.gaoyuan.validate.ReSaveTenderEnterpriseValidate;
 import cc.fypp.gaoyuan.validate.SaveBuyCarEnterpriseValidate;
 import cc.fypp.gaoyuan.validate.SaveTenderEnterpriseValidate;
 import cc.fypp.gaoyuan.validate.SaveTenderImageValidate;
@@ -233,6 +234,9 @@ public class TenderController extends Controller{
 	public void findTenderForUser(){
 		Long user_id  = getParaToLong("user_id");
 		String status = getPara("status");
+		/**
+		 * TODO 增加多个状态
+		 */
 		String tender_id = getPara("tender_id"); 
 		Boolean is_before = getParaToBoolean("is_before");
 		Integer page_size = 10;
@@ -244,8 +248,18 @@ public class TenderController extends Controller{
 		listPara.add(user_id);
 		listPara.add(Constants.TENDER_DEL_STATUS.UN_DELETE);
 		if(StringUtils.isNotBlank(status)){
-			sql.append(" and (select count(*) from tender_enterprise a where a.tender_id = o.tender_id and a.status = ? ) > 0 "); 
-			listPara.add(status);
+			String[] arrayStatus = status.split(",");
+			sql.append(" and (select count(*) from tender_enterprise a where a.tender_id = o.tender_id and a.status in (");
+			StringBuilder sb = new StringBuilder();
+			for(String s:arrayStatus){
+				if(sb.length()>0){
+					sb.append(",");
+				}
+				sb.append("?");
+				listPara.add(status);
+			}
+			sql.append(sb.toString()).append(") ) > 0 ");
+			//sql.append(" and (select count(*) from tender_enterprise a where a.tender_id = o.tender_id and a.status in ("+sb.toString()+") ) > 0 "); 
 		}
 		if(StringUtils.isNotBlank(tender_id)){
 			if(is_before){
@@ -288,10 +302,7 @@ public class TenderController extends Controller{
 		String tender_id = getPara("tender_id");
 		String[] merchant_ids = getPara("merchant_id").split(",");
 		String sms_template = SmsUtil.getSmsTemplate(Constants.SMS_TYPE.TASK_NOTE.toString());
-		if(StringUtils.isBlank(sms_template)){
-			renderJson(MessageUtil.runtimeErroMsg("短信模板为空"));
-			return;
-		}
+		
 		for(String merchant_id:merchant_ids){
 			Record record = new Record()
 			.set("tender_id", tender_id)
@@ -310,6 +321,28 @@ public class TenderController extends Controller{
 		}
 		renderJson(MessageUtil.successMsg("保存招标企业信息成功", ""));
 	}
+	
+	@Before({Tx.class,ReSaveTenderEnterpriseValidate.class})
+	public void reSaveTenderEnterprise(){
+		String tender_id = getPara("tender_id");
+		String merchant_id = getPara("merchant_id");
+		Record tender_enterprise = Db.findFirst("select * from tender_enterprise where tender_id=? and merchant_id = ?", new Object[]{tender_id,merchant_id});
+		tender_enterprise.set("status", Constants.TENDER_STATUS.UNTREATED);
+		tender_enterprise.set("merchant_del", Constants.TENDER_DEL_STATUS.UN_DELETE);
+		tender_enterprise.set("create_time", System.currentTimeMillis());
+		Db.update("tender_enterprise", tender_enterprise);
+		String sms_template = SmsUtil.getSmsTemplate(Constants.SMS_TYPE.TASK_NOTE.toString());
+		/**
+		 * TODO
+		 * 短信通知商户
+		 */
+		Record merchant = Db.findById("merchant_info", "merchant_id", merchant_id, "*");
+		Thread thread = new Thread(new SendSMS(merchant.getStr("login_name"), sms_template));
+		thread.start();
+		
+		renderJson(MessageUtil.successMsg("保存招标企业信息成功", ""));
+	}
+   
 	
 	/**
 	 * 删除招标企业信息
@@ -458,7 +491,14 @@ public class TenderController extends Controller{
 			renderJson(MessageUtil.successMsg("", ""));
 		}else{
 			List<Record> tender_infos = Db.find("select o.* from tender_info o where o.tender_id in (select distinct a.tender_id from buy_car a where a.user_id = ? )", user_id);
-			renderJson(MessageUtil.successMsg("", tender_infos));
+			List<Record> new_tender_infos  =new ArrayList<Record>();
+			for(Record record:tender_infos){
+				Record product_info = Db.findById("product_info", record.getLong("product_id"));
+				record.set("product_infos", product_info);
+				new_tender_infos.add(record);
+			}
+			
+			renderJson(MessageUtil.successMsg("", new_tender_infos));
 		}
 	}
 	

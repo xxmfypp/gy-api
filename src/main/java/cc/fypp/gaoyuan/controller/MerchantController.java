@@ -254,9 +254,9 @@ public class MerchantController extends Controller{
 			record.set("images3", Db.find("select o.* from merchant_externalinfo o where o.type=? and o.merchant_id = ?", "3",merchant_id));
 			record.set("images4", Db.find("select o.* from merchant_externalinfo o where o.type=? and o.merchant_id = ?", "4",merchant_id));
 			record.set("images5", Db.find("select o.* from merchant_externalinfo o where o.type=? and o.merchant_id = ?", "5",merchant_id));
-			record.set("merchant_services", Db.find("select o.* from merchant_service o where o.merchant_id = ?",merchant_id));
-			record.set("merchant_brands", Db.find("select o.* from merchant_brand o where o.merchant_id = ?",merchant_id));
-			record.set("merchant_technologys", Db.find("select o.* from merchant_technology o where o.merchant_id = ?",merchant_id));
+			record.set("merchant_services", Db.find("select o.* from service_info o where o.id in (select distinct a.service_id from merchant_service a where a.merchant_id = ?)",merchant_id));
+			record.set("merchant_brands", Db.find("select o.* from brand_info o where o.id in (select distinct a.brand_id from merchant_brand a where a.merchant_id = ?)",merchant_id));
+			record.set("merchant_technologys", Db.find("select o.* from technology_info o where o.id in (select distinct a.technology_id from merchant_technology a where a.merchant_id = ?)",merchant_id));
 			renderJson(MessageUtil.successMsg("", record));
 		}
 	}
